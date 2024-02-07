@@ -159,8 +159,6 @@ if __name__ == '__main__':
         precision = precision_score(bind_gt_np, bind_pred_np)
         recall = recall_score(bind_gt_np, bind_pred_np)
         f1 = f1_score(bind_gt_np, bind_pred_np)
-        breakpoint()
-
         logger.info(f'[All] Precision {precision:.6f} Recall {recall:.6f} F1-score {f1:.6f}')
         writer.add_scalar('val/precision', precision, it)
         writer.add_scalar('val/recall', recall, it)
