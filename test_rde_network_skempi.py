@@ -14,8 +14,8 @@ from rde.utils.skempi import SkempiDatasetManager, eval_skempi_three_modes
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ckpt', type=str, default='trained_models/DDG_RDE_Network_30k.pt')
-    parser.add_argument('-o', '--output', type=str, default='skempi_results.csv')
+    parser.add_argument('--ckpt', type=str)
+    parser.add_argument('-o', '--output', type=str, default='af2_data_1112_wholenet_ft.csv')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--num_workers', type=int, default=4)
     args = parser.parse_args()
@@ -27,6 +27,7 @@ if __name__ == '__main__':
 
     # Data
     logger.info('Loading datasets...')
+    breakpoint()
     dataset_mgr = SkempiDatasetManager(
         config, 
         num_cvfolds=num_cvfolds, 

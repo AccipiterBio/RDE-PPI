@@ -15,10 +15,17 @@ from rde.utils.protein.parsers import parse_biopython_structure
 
 
 def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
-    df = pd.read_csv(csv_path, sep=';')
-    df['dG_wt'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_wt_parsed'])
-    df['dG_mut'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_mut_parsed'])
-    df['ddG'] = df['dG_mut'] - df['dG_wt']
+    df = pd.read_csv(csv_path, sep=',')
+    if "Affinity_wt_parsed" not in df: 
+        df['ddG'] = 100 * (df['mean_iptm_ptm_reference'] - df['mean_iptm_ptm_mutant'])
+        print(f"The range of iptm values is {df['ddG'].max() - df['ddG'].min()}")
+        print(df['ddG'].describe())
+    else:    
+        df['dG_wt'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_wt_parsed'])
+        df['dG_mut'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_mut_parsed'])
+        df['ddG'] = df['dG_mut'] - df['dG_wt']
+        print(f"The range of ddG values is {df['ddG'].max() - df['ddG'].min()}")
+        print(df['ddG'].describe())
 
     def _parse_mut(mut_name):
         wt_type, mutchain, mt_type = mut_name[0], mut_name[1], mut_name[-1]
@@ -46,6 +53,7 @@ def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
 
         pdb_path = os.path.join(pdb_dir, '{}.pdb'.format(pdbcode.upper()))
         if not os.path.exists(pdb_path):
+            print(f"Skipping {pdbcode} with no pdb at {pdb_path}")
             continue
 
         if not np.isfinite(row['ddG']):
@@ -62,6 +70,7 @@ def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
             'mutations': muts,
             'ddG': np.float32(row['ddG']),
             'pdb_path': pdb_path,
+            'af2_confidence_score': np.float32(row['mean_iptm_ptm_mutant'])
         }
         entries.append(entry)
 
@@ -81,7 +90,7 @@ class SkempiDataset(Dataset):
         split_seed=2022,
         transform=None, 
         blocklist=frozenset({'1KBH'}), 
-        reset=False
+        reset=True
     ):
         super().__init__()
         self.csv_path = csv_path
@@ -171,7 +180,7 @@ class SkempiDataset(Dataset):
     def __getitem__(self, index):
         entry = self.entries[index]
         data, seq_map = copy.deepcopy( self.structures[entry['pdbcode']] )
-        keys = {'id', 'complex', 'mutstr', 'num_muts', 'pdbcode', 'ddG'}
+        keys = {'id', 'complex', 'mutstr', 'num_muts', 'pdbcode', 'ddG', 'af2_confidence_score'}
         for k in keys:
             data[k] = entry[k]
 

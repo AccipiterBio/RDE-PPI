@@ -56,6 +56,7 @@ class SkempiDatasetManager(object):
             cvfold_index = fold,
             transform = get_transform(config.data.transform)
         )
+
         train_dataset = dataset_(split='train')
         val_dataset = dataset_(split='val')
         
@@ -63,7 +64,6 @@ class SkempiDatasetManager(object):
         val_cplx = set([e['complex'] for e in val_dataset.entries])
         leakage = train_cplx.intersection(val_cplx)
         assert len(leakage) == 0, f'data leakage {leakage}'
-
         train_loader = DataLoader(
             train_dataset, 
             batch_size=config.train.batch_size, 
@@ -172,10 +172,18 @@ def analyze_all_percomplex_correlations(df):
     for method in tqdm(methods):
         df_this = df[df['method'] == method]
         _, df_corr_this = percomplex_correlations(df_this, return_details=True)
-        df_corr_this['method'] = method
-        df_corr.append(df_corr_this)
-    df_corr = pd.concat(df_corr).reset_index()
+        if not df_corr_this.empty:
+            df_corr_this['method'] = method
+            df_corr.append(df_corr_this)
+        else:
+            print(f"No data for method: {method}")
+
+    if df_corr:  # Check if df_corr is not empty
+        df_corr = pd.concat(df_corr).reset_index()
+    else:
+        print("No dataframes to concatenate")
     return df_corr
+
 
 
 def eval_skempi(df_items, mode, ddg_cutoff=None):
@@ -189,7 +197,7 @@ def eval_skempi(df_items, mode, ddg_cutoff=None):
         df_items = df_items.query(f"ddG >= {-ddg_cutoff} and ddG <= {ddg_cutoff}")
 
     df_metrics = analyze_all_results(df_items)
-    df_corr = analyze_all_percomplex_correlations(df_items)
+    df_corr = analyze_all_percomplex_correlations(df_items) #this doesn't get returned anywhere
     df_metrics['mode'] = mode
     return df_metrics
 

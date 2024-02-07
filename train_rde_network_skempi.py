@@ -7,12 +7,13 @@ import torch.nn as nn
 import torch.utils.tensorboard
 from torch.nn.utils import clip_grad_norm_
 from tqdm.auto import tqdm
+from sklearn.metrics import precision_score, recall_score, f1_score
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from rde.utils.misc import BlackHole, load_config, seed_all, get_logger, get_new_log_dir, current_milli_time
 from rde.utils.train import *
-from rde.models.rde_ddg import DDG_RDE_Network
+from rde.models.rde_ddg_af2 import DDG_RDE_Network
 from rde.utils.skempi import SkempiDatasetManager, per_complex_corr
 
 
@@ -125,28 +126,45 @@ if __name__ == '__main__':
                     loss = sum_weighted_losses(loss_dict, config.train.loss_weights)
                     scalar_accum.add(name='loss', value=loss, batchsize=batch['size'], mode='mean')
 
-                    for complex, mutstr, ddg_true, ddg_pred in zip(batch['complex'], batch['mutstr'], output_dict['ddG_true'], output_dict['ddG_pred']):
+                    for complex, mutstr, IPTM_true, IPTM_pred in zip(batch['complex'], batch['mutstr'], output_dict['iptm_true'], output_dict['iptm_pred']):
                         results.append({
                             'complex': complex,
                             'mutstr': mutstr,
                             'num_muts': len(mutstr.split(',')),
-                            'ddG': ddg_true.item(),
-                            'ddG_pred': ddg_pred.item()
+                            'iptm_gt': IPTM_true.item(),
+                            'iptm_pred': IPTM_pred.item()
                         })
         
         results = pd.DataFrame(results)
         if ckpt_dir is not None:
             results.to_csv(os.path.join(ckpt_dir, f'results_{it}.csv'), index=False)
-        pearson_all = results[['ddG', 'ddG_pred']].corr('pearson').iloc[0, 1]
-        spearman_all = results[['ddG', 'ddG_pred']].corr('spearman').iloc[0, 1]
-        pearson_pc, spearman_pc = per_complex_corr(results)
+        #pearson_all = results[['ddG', 'ddG_pred']].corr('pearson').iloc[0, 1]
+        #spearman_all = results[['ddG', 'ddG_pred']].corr('spearman').iloc[0, 1]
+        #pearson_pc, spearman_pc = per_complex_corr(results)
 
-        logger.info(f'[All] Pearson {pearson_all:.6f} Spearman {spearman_all:.6f}')
-        logger.info(f'[PC]  Pearson {pearson_pc:.6f} Spearman {spearman_pc:.6f}')
-        writer.add_scalar('val/all_pearson', pearson_all, it)
-        writer.add_scalar('val/all_spearman', spearman_all, it)
-        writer.add_scalar('val/pc_pearson', pearson_pc, it)
-        writer.add_scalar('val/pc_spearman', spearman_pc, it)
+        #logger.info(f'[All] Pearson {pearson_all:.6f} Spearman {spearman_all:.6f}')
+        #logger.info(f'[PC]  Pearson {pearson_pc:.6f} Spearman {spearman_pc:.6f}')
+        #writer.add_scalar('val/all_pearson', pearson_all, it)
+        #writer.add_scalar('val/all_spearman', spearman_all, it)
+        #writer.add_scalar('val/pc_pearson', pearson_pc, it)
+        #writer.add_scalar('val/pc_spearman', spearman_pc, it)
+        threshold = 0.8
+        bind_pred = (results['iptm_pred'] > threshold).astype(int)
+        bind_gt = (results['iptm_gt'] > threshold).astype(int)
+        # Convert tensors to numpy arrays for compatibility with scikit-learn
+        bind_pred_np = bind_pred.to_numpy()  # Assuming bind_pred is a pandas Series
+        bind_gt_np = bind_gt.to_numpy()
+
+        # Calculate precision, recall, and F1 score
+        precision = precision_score(bind_gt_np, bind_pred_np)
+        recall = recall_score(bind_gt_np, bind_pred_np)
+        f1 = f1_score(bind_gt_np, bind_pred_np)
+        breakpoint()
+
+        logger.info(f'[All] Precision {precision:.6f} Recall {recall:.6f} F1-score {f1:.6f}')
+        writer.add_scalar('val/precision', precision, it)
+        writer.add_scalar('val/recall', recall, it)
+        writer.add_scalar('val/f1_score', f1, it)
 
         avg_loss = scalar_accum.get_average('loss')
         scalar_accum.log(it, 'val', logger=logger, writer=writer)
