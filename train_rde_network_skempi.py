@@ -152,9 +152,9 @@ if __name__ == '__main__':
         bind_pred = (results['iptm_pred'] > threshold).astype(int)
         bind_gt = (results['iptm_gt'] > threshold).astype(int)
         # Convert tensors to numpy arrays for compatibility with scikit-learn
-        bind_pred_np = bind_pred.to_numpy()  # Assuming bind_pred is a pandas Series
+        bind_pred_np = bind_pred.to_numpy()  
         bind_gt_np = bind_gt.to_numpy()
-
+        
         # Calculate precision, recall, and F1 score
         precision = precision_score(bind_gt_np, bind_pred_np)
         recall = recall_score(bind_gt_np, bind_pred_np)

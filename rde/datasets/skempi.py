@@ -17,9 +17,7 @@ from rde.utils.protein.parsers import parse_biopython_structure
 def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
     df = pd.read_csv(csv_path, sep=',')
     if "Affinity_wt_parsed" not in df: 
-        df['ddG'] = 100 * (df['mean_iptm_ptm_reference'] - df['mean_iptm_ptm_mutant'])
-        print(f"The range of iptm values is {df['ddG'].max() - df['ddG'].min()}")
-        print(df['ddG'].describe())
+        print(f"The range of iptm values is {df['mean_iptm_ptm_mutant'].max() - df['mean_iptm_ptm_mutant'].min()}")
     else:    
         df['dG_wt'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_wt_parsed'])
         df['dG_mut'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_mut_parsed'])
