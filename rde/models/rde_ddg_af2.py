@@ -55,6 +55,16 @@ class DDG_RDE_Network(nn.Module):
             nn.Linear(dim, dim), nn.ReLU(),
             nn.Linear(dim, 1)
         )
+        # self.plddt_readout = nn.Sequential(
+        #     nn.Linear(dim, dim), nn.ReLU(),
+        #     nn.Linear(dim, dim), nn.ReLU(),
+        #     nn.Linear(dim, 1)
+        # )
+        # self.pae_readout = nn.Sequential(
+        #     nn.Linear(dim, dim), nn.ReLU(),
+        #     nn.Linear(dim, dim), nn.ReLU(),
+        #     nn.Linear(dim, 1)
+        # )
 
     def _encode_rde(self, batch, mask_extra=None):
         batch = {k: v for k, v in batch.items()}
@@ -96,40 +106,48 @@ class DDG_RDE_Network(nn.Module):
         return x
 
     def forward(self, batch):
-
-        iptm_mask = torch.tensor([True if 'af2_confidence_score' in batch else False for _ in range(batch_size)], dtype=torch.bool)
-        ddg_mask = torch.tensor([True if 'ddG' in batch else False for _ in range(batch_size)], dtype=torch.bool)
-
-        # batch_wt = {k: v for k, v in batch.items()}
+        
+        batch_wt = {k: v for k, v in batch.items()}
         batch_mt = {k: v for k, v in batch.items()}
         batch_mt['aa'] = batch_mt['aa_mut']
 
-        # h_wt = self.encode(batch_wt)
-        h_mt = self.encode(batch_mt)
+        h_wt = self.encode(batch_wt) # We could save some compute by only calculating this when the ddg mask is valid but let's not worry about it yet
+        H_wt = h_wt.max(dim=1)[0]
 
-        # H_wt = h_wt.max(dim=1)[0]
+        h_mt = self.encode(batch_mt)
         H_mt = h_mt.max(dim=1)[0]
         
-        # ddg_pred = self.ddg_readout(H_mt - H_wt).squeeze(-1)
-        # ddg_pred_inv = self.ddg_readout(H_wt - H_mt).squeeze(-1)
+        device = h_mt.device
+        N = h_mt.shape[0]
 
-        # iptm_pred = self.iptm_readout(H_wt).squeeze(-1)
+        iptm_valid_mask = ~batch["af2_confidence_score"].isnan()
+        ddg_valid_mask = ~batch["ddG"].isnan()
+        # assert (ddg_valid_mask == ~iptm_valid_mask).all(), "ddg and iptm are meant to be exclusive for now"
+
+        ddg_pred = self.ddg_readout(H_mt - H_wt).squeeze(-1)
+        ddg_pred_inv = self.ddg_readout(H_wt - H_mt).squeeze(-1)
+
+        if ddg_valid_mask.any():
+            gt_ddg = batch['ddG'][ddg_valid_mask]
+            loss_ddg = (F.mse_loss(ddg_pred[ddg_valid_mask], gt_ddg, reduction="sum") + F.mse_loss(ddg_pred_inv[ddg_valid_mask], -gt_ddg, reduction="sum")) / (2 * N)
+        else:
+            loss_ddg = torch.zeros(1, device=device)
+
         iptm_logits = self.iptm_readout(H_mt).squeeze(-1)
         iptm_pred = torch.sigmoid(iptm_logits)
-
-        loss = F.binary_cross_entropy_with_logits(iptm_logits, batch["af2_confidence_score"])
-        # loss_iptm = F.binary_cross_entropy_with_logits(iptm_pred[af2_mask], batch[af2_mask]["af2_confidence_score"])
-
-        # loss_ddg = (F.mse_loss(ddg_pred, batch['ddG']) + F.mse_loss(ddg_pred_inv, -batch['ddG'])) / 2
-        
-
+        if iptm_valid_mask.any():
+            gt_af2_confidence_score = batch["af2_confidence_score"][iptm_valid_mask]
+            loss_iptm = F.binary_cross_entropy_with_logits(iptm_logits[iptm_valid_mask], gt_af2_confidence_score, reduction="sum") / N
+        else:
+            loss_iptm = torch.zeros(1, device=device)
 
         loss_dict = {
-            # 'regression_head_1': loss_ddg,
-            'regression': loss,
+            'iptm': loss_iptm,
+            'ddg': loss_ddg,
         }
         out_dict = {
-            #'ddG_pred': ddg_pred,  
+            'ddg_pred': ddg_pred,
+            'ddg_true': batch['ddG'],
             'iptm_pred': iptm_pred, 
             'iptm_true': batch["af2_confidence_score"],
         }

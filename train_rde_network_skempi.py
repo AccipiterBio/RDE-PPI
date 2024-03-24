@@ -126,31 +126,38 @@ if __name__ == '__main__':
                     loss = sum_weighted_losses(loss_dict, config.train.loss_weights)
                     scalar_accum.add(name='loss', value=loss, batchsize=batch['size'], mode='mean')
 
-                    for complex, mutstr, IPTM_true, IPTM_pred in zip(batch['complex'], batch['mutstr'], output_dict['iptm_true'], output_dict['iptm_pred']):
+                    for complex, mutstr, ddg_pred, ddg_true, iptm_pred, iptm_true in zip(batch['complex'], batch['mutstr'], output_dict["ddg_pred"], output_dict["ddg_true"], output_dict['iptm_pred'], output_dict['iptm_true'], strict=True):
                         results.append({
                             'complex': complex,
                             'mutstr': mutstr,
                             'num_muts': len(mutstr.split(',')),
-                            'iptm_gt': IPTM_true.item(),
-                            'iptm_pred': IPTM_pred.item()
+                            'ddg_pred': ddg_pred.item(),
+                            'ddg_true': ddg_true.item(),
+                            'iptm_pred': iptm_pred.item(),
+                            'iptm_true': iptm_true.item(),
                         })
         
         results = pd.DataFrame(results)
         if ckpt_dir is not None:
             results.to_csv(os.path.join(ckpt_dir, f'results_{it}.csv'), index=False)
-        #pearson_all = results[['ddG', 'ddG_pred']].corr('pearson').iloc[0, 1]
-        #spearman_all = results[['ddG', 'ddG_pred']].corr('spearman').iloc[0, 1]
-        #pearson_pc, spearman_pc = per_complex_corr(results)
+        ddg_valid = results['ddg_pred'] == results['ddg_pred'] # Not nan
 
-        #logger.info(f'[All] Pearson {pearson_all:.6f} Spearman {spearman_all:.6f}')
-        #logger.info(f'[PC]  Pearson {pearson_pc:.6f} Spearman {spearman_pc:.6f}')
-        #writer.add_scalar('val/all_pearson', pearson_all, it)
-        #writer.add_scalar('val/all_spearman', spearman_all, it)
-        #writer.add_scalar('val/pc_pearson', pearson_pc, it)
-        #writer.add_scalar('val/pc_spearman', spearman_pc, it)
+        pearson_all = results[['ddg_true', 'ddg_pred']][ddg_valid].corr('pearson').iloc[0, 1]
+        spearman_all = results[['ddg_true', 'ddg_pred']][ddg_valid].corr('spearman').iloc[0, 1]
+        pearson_pc, spearman_pc = per_complex_corr(results[ddg_valid], limit=1)
+
+        logger.info(f'[All] Pearson {pearson_all:.6f} Spearman {spearman_all:.6f}')
+        logger.info(f'[PC]  Pearson {pearson_pc:.6f} Spearman {spearman_pc:.6f}')
+        writer.add_scalar('val/all_pearson', pearson_all, it)
+        writer.add_scalar('val/all_spearman', spearman_all, it)
+        writer.add_scalar('val/pc_pearson', pearson_pc, it)
+        writer.add_scalar('val/pc_spearman', spearman_pc, it)
         threshold = 0.8
-        bind_pred = (results['iptm_pred'] > threshold).astype(int)
-        bind_gt = (results['iptm_gt'] > threshold).astype(int)
+        
+        iptm_valid = results['iptm_pred'] == results['iptm_pred'] # Not nan
+
+        bind_pred = (results['iptm_pred'][iptm_valid] > threshold).astype(int)
+        bind_gt = (results['iptm_true'][iptm_valid] > threshold).astype(int)
         # Convert tensors to numpy arrays for compatibility with scikit-learn
         bind_pred_np = bind_pred.to_numpy()  
         bind_gt_np = bind_gt.to_numpy()

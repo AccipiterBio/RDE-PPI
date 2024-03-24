@@ -10,20 +10,16 @@ from torch.utils.data import Dataset
 from tqdm.auto import tqdm
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.Polypeptide import one_to_index
-
+import multiprocessing
 from rde.utils.protein.parsers import parse_biopython_structure
-
+import functools
 
 def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
     df = pd.read_csv(csv_path, sep=',')
-    if "Affinity_wt_parsed" not in df: 
-        print(f"The range of iptm values is {df['mean_iptm_ptm_mutant'].max() - df['mean_iptm_ptm_mutant'].min()}")
-    else:    
+    if 'Affinity_wt_parsed' in df:
         df['dG_wt'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_wt_parsed'])
         df['dG_mut'] =  (8.314/4184)*(273.15 + 25.0) * np.log(df['Affinity_mut_parsed'])
         df['ddG'] = df['dG_mut'] - df['dG_wt']
-        print(f"The range of ddG values is {df['ddG'].max() - df['ddG'].min()}")
-        print(df['ddG'].describe())
 
     def _parse_mut(mut_name):
         wt_type, mutchain, mt_type = mut_name[0], mut_name[1], mut_name[-1]
@@ -54,9 +50,10 @@ def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
             print(f"Skipping {pdbcode} with no pdb at {pdb_path}")
             continue
 
-        if not np.isfinite(row['ddG']):
-            continue
+        ddg = np.float32(row['ddG']) if "ddG" in row else float("nan")
+        af2_confidence_score = np.float32(row['mean_iptm_ptm_mutant']) if 'mean_iptm_ptm_mutant' in row else float("nan")
 
+        # Either mean_iptm_ptm_mutant or ddg is not set, what does that look like? Fill in these with a placeholder value.
         entry = {
             'id': i,
             'complex': row['#Pdb'],
@@ -66,13 +63,23 @@ def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
             'group_ligand': list(group_ligand),
             'group_receptor': list(group_receptor),
             'mutations': muts,
-            'ddG': np.float32(row['ddG']),
+            'ddG': ddg,
             'pdb_path': pdb_path,
-            'af2_confidence_score': np.float32(row['mean_iptm_ptm_mutant'])
+            'af2_confidence_score': af2_confidence_score,
+            # 'af2_plddt_chainA': np.float32(row['plddt_chain_A']),
+            # 'af2_pae_chainA': np.float32(row['pae_chain_A'])
         }
         entries.append(entry)
 
     return entries
+
+
+def load_pdb(pdb_dir, pdbcode: str):
+    parser = PDBParser(QUIET=True)
+    pdb_path = os.path.join(pdb_dir, '{}.pdb'.format(pdbcode.upper()))
+    model = parser.get_structure(None, pdb_path)[0]
+    data, seq_map = parse_biopython_structure(model)
+    return pdbcode, data, seq_map
 
 
 class SkempiDataset(Dataset):
@@ -119,6 +126,8 @@ class SkempiDataset(Dataset):
             with open(self.entries_cache, 'rb') as f:
                 self.entries_full = pickle.load(f)
 
+        self.entries_full = self.entries_full[:50]
+
         complex_to_entries = {}
         for e in self.entries_full:
             if e['complex'] not in complex_to_entries:
@@ -162,12 +171,9 @@ class SkempiDataset(Dataset):
     def _preprocess_structures(self):
         structures = {}
         pdbcodes = list(set([e['pdbcode'] for e in self.entries_full]))
-        for pdbcode in tqdm(pdbcodes, desc='Structures'):
-            parser = PDBParser(QUIET=True)
-            pdb_path = os.path.join(self.pdb_dir, '{}.pdb'.format(pdbcode.upper()))
-            model = parser.get_structure(None, pdb_path)[0]
-            data, seq_map = parse_biopython_structure(model)
-            structures[pdbcode] = (data, seq_map)
+        with multiprocessing.Pool(8) as p:
+            for pdbcode, data, seq_map in tqdm(p.imap_unordered(functools.partial(load_pdb, self.pdb_dir), pdbcodes), desc='Structures', total=len(pdbcodes)):
+                structures[pdbcode] = (data, seq_map)
         with open(self.structures_cache, 'wb') as f:
             pickle.dump(structures, f)
         return structures

@@ -18,7 +18,8 @@ data:
 
 train:
   loss_weights:
-    regression: 1.0
+    iptm: 1.0
+    ddg: 1.0
   max_iters: 30_000
   val_freq: 500
   batch_size: 32

@@ -14,7 +14,7 @@ from rde.utils.transforms import get_transform
 from rde.datasets import SkempiDataset
 
 
-def per_complex_corr(df, pred_attr='ddG_pred', limit=10):
+def per_complex_corr(df, pred_attr='ddg_pred', limit=10):
     corr_table = []
     for cplx in df['complex'].unique():
         df_cplx = df.query(f'complex == "{cplx}"')
@@ -22,8 +22,8 @@ def per_complex_corr(df, pred_attr='ddG_pred', limit=10):
             continue
         corr_table.append({
             'complex': cplx,
-            'pearson': df_cplx[['ddG', pred_attr]].corr('pearson').iloc[0,1],
-            'spearman': df_cplx[['ddG', pred_attr]].corr('spearman').iloc[0,1],
+            'pearson': df_cplx[['ddg_true', pred_attr]].corr('pearson').iloc[0,1],
+            'spearman': df_cplx[['ddg_true', pred_attr]].corr('spearman').iloc[0,1],
         })
     corr_table = pd.DataFrame(corr_table)
     avg = corr_table[['pearson', 'spearman']].mean()
@@ -62,6 +62,7 @@ class SkempiDatasetManager(object):
         
         train_cplx = set([e['complex'] for e in train_dataset.entries])
         val_cplx = set([e['complex'] for e in val_dataset.entries])
+        print(f"validation set is {val_cplx}")
         leakage = train_cplx.intersection(val_cplx)
         assert len(leakage) == 0, f'data leakage {leakage}'
         train_loader = DataLoader(
@@ -166,26 +167,6 @@ def analyze_all_results(df):
     return analysis
 
 
-def analyze_all_percomplex_correlations(df):
-    methods = df['method'].unique()
-    df_corr = []
-    for method in tqdm(methods):
-        df_this = df[df['method'] == method]
-        _, df_corr_this = percomplex_correlations(df_this, return_details=True)
-        if not df_corr_this.empty:
-            df_corr_this['method'] = method
-            df_corr.append(df_corr_this)
-        else:
-            print(f"No data for method: {method}")
-
-    if df_corr:  # Check if df_corr is not empty
-        df_corr = pd.concat(df_corr).reset_index()
-    else:
-        print("No dataframes to concatenate")
-    return df_corr
-
-
-
 def eval_skempi(df_items, mode, ddg_cutoff=None):
     assert mode in ('all', 'single', 'multiple')
     if mode == 'single':
@@ -197,7 +178,6 @@ def eval_skempi(df_items, mode, ddg_cutoff=None):
         df_items = df_items.query(f"ddG >= {-ddg_cutoff} and ddG <= {ddg_cutoff}")
 
     df_metrics = analyze_all_results(df_items)
-    df_corr = analyze_all_percomplex_correlations(df_items) #this doesn't get returned anywhere
     df_metrics['mode'] = mode
     return df_metrics
 
