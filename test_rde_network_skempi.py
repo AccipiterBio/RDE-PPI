@@ -27,7 +27,6 @@ if __name__ == '__main__':
 
     # Data
     logger.info('Loading datasets...')
-    breakpoint()
     dataset_mgr = SkempiDatasetManager(
         config, 
         num_cvfolds=num_cvfolds, 

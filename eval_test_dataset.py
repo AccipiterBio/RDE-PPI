@@ -50,7 +50,6 @@ if __name__ == '__main__':
     ).to(args.device)
     logger.info('Loading state dict...')
     #cv_mgr.load_state_dict(ckpt['model'])
-    breakpoint()
     scalar_accum = ScalarMetricAccumulator()
     results = []
     with torch.no_grad():
