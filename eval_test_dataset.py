@@ -15,7 +15,7 @@ from rde.utils.skempi import SkempiDatasetManager, eval_skempi_three_modes
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ckpt', type=str)
-    parser.add_argument('-o', '--output', type=str, default='test_ognet_output.csv')
+    parser.add_argument('-o', '--output', type=str, default='test_carterra.csv')
     parser.add_argument('--test_csv', type=str)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -29,10 +29,11 @@ if __name__ == '__main__':
         logger.info(f"Overwrting csv path to {args.test_csv}")
         config["data"]["csv_path"] = args.test_csv
 
-    num_cvfolds = len(ckpt['model']['models'])
+    num_cvfolds = 1 # len(ckpt['model']['models'])
 
     # Data
     logger.info('Loading datasets...')
+    breakpoint()
     dataset_mgr = SkempiDatasetManager(
         config, 
         num_cvfolds=num_cvfolds, 
@@ -48,8 +49,8 @@ if __name__ == '__main__':
         num_cvfolds=num_cvfolds
     ).to(args.device)
     logger.info('Loading state dict...')
-    cv_mgr.load_state_dict(ckpt['model'])
-
+    #cv_mgr.load_state_dict(ckpt['model'])
+    breakpoint()
     scalar_accum = ScalarMetricAccumulator()
     results = []
     with torch.no_grad():

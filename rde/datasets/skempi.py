@@ -52,6 +52,8 @@ def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
 
         ddg = np.float32(row['ddG']) if "ddG" in row else float("nan")
         af2_confidence_score = np.float32(row['mean_iptm_ptm_mutant']) if 'mean_iptm_ptm_mutant' in row else float("nan")
+        plddt = np.float32(row['plddt_chain_A']) if 'plddt_chain_A' in row else float('nan')
+        pae = np.float32(row['pae_chain_A']) if 'pae_chain_A' in row else float('nan')
 
         # Either mean_iptm_ptm_mutant or ddg is not set, what does that look like? Fill in these with a placeholder value.
         entry = {
@@ -66,8 +68,8 @@ def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
             'ddG': ddg,
             'pdb_path': pdb_path,
             'af2_confidence_score': af2_confidence_score,
-            # 'af2_plddt_chainA': np.float32(row['plddt_chain_A']),
-            # 'af2_pae_chainA': np.float32(row['pae_chain_A'])
+            'af2_plddt_chainA': plddt,
+            'af2_pae_chainA': pae
         }
         entries.append(entry)
 
@@ -126,8 +128,6 @@ class SkempiDataset(Dataset):
             with open(self.entries_cache, 'rb') as f:
                 self.entries_full = pickle.load(f)
 
-        self.entries_full = self.entries_full[:50]
-
         complex_to_entries = {}
         for e in self.entries_full:
             if e['complex'] not in complex_to_entries:
@@ -184,7 +184,7 @@ class SkempiDataset(Dataset):
     def __getitem__(self, index):
         entry = self.entries[index]
         data, seq_map = copy.deepcopy( self.structures[entry['pdbcode']] )
-        keys = {'id', 'complex', 'mutstr', 'num_muts', 'pdbcode', 'ddG', 'af2_confidence_score'}
+        keys = {'id', 'complex', 'mutstr', 'num_muts', 'pdbcode', 'ddG', 'af2_confidence_score', 'af2_plddt_chainA', 'af2_pae_chainA'}
         for k in keys:
             data[k] = entry[k]
 

@@ -126,7 +126,7 @@ if __name__ == '__main__':
                     loss = sum_weighted_losses(loss_dict, config.train.loss_weights)
                     scalar_accum.add(name='loss', value=loss, batchsize=batch['size'], mode='mean')
 
-                    for complex, mutstr, ddg_pred, ddg_true, iptm_pred, iptm_true in zip(batch['complex'], batch['mutstr'], output_dict["ddg_pred"], output_dict["ddg_true"], output_dict['iptm_pred'], output_dict['iptm_true'], strict=True):
+                    for complex, mutstr, ddg_pred, ddg_true, iptm_pred, iptm_true, plddt_pred, plddt_true, pae_pred, pae_true in zip(batch['complex'], batch['mutstr'], output_dict["ddg_pred"], output_dict["ddg_true"], output_dict['iptm_pred'], output_dict['iptm_true'], output_dict["plddt_pred"], output_dict["plddt_true"], output_dict["pae_pred"], output_dict["pae_true"], strict=True):
                         results.append({
                             'complex': complex,
                             'mutstr': mutstr,
@@ -135,6 +135,10 @@ if __name__ == '__main__':
                             'ddg_true': ddg_true.item(),
                             'iptm_pred': iptm_pred.item(),
                             'iptm_true': iptm_true.item(),
+                            'plddt_pred': plddt_pred.item(),
+                            'plddt_true': plddt_true.item(),
+                            'pae_pred': pae_pred.item(),
+                            'pae_true': pae_true.item()
                         })
         
         results = pd.DataFrame(results)

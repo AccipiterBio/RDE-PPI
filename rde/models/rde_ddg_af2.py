@@ -55,16 +55,16 @@ class DDG_RDE_Network(nn.Module):
             nn.Linear(dim, dim), nn.ReLU(),
             nn.Linear(dim, 1)
         )
-        # self.plddt_readout = nn.Sequential(
-        #     nn.Linear(dim, dim), nn.ReLU(),
-        #     nn.Linear(dim, dim), nn.ReLU(),
-        #     nn.Linear(dim, 1)
-        # )
-        # self.pae_readout = nn.Sequential(
-        #     nn.Linear(dim, dim), nn.ReLU(),
-        #     nn.Linear(dim, dim), nn.ReLU(),
-        #     nn.Linear(dim, 1)
-        # )
+        self.plddt_readout = nn.Sequential(
+            nn.Linear(dim, dim), nn.ReLU(),
+            nn.Linear(dim, dim), nn.ReLU(),
+            nn.Linear(dim, 1)
+        )
+        self.pae_readout = nn.Sequential(
+            nn.Linear(dim, dim), nn.ReLU(),
+            nn.Linear(dim, dim), nn.ReLU(),
+            nn.Linear(dim, 1)
+        )
 
     def _encode_rde(self, batch, mask_extra=None):
         batch = {k: v for k, v in batch.items()}
@@ -135,20 +135,39 @@ class DDG_RDE_Network(nn.Module):
 
         iptm_logits = self.iptm_readout(H_mt).squeeze(-1)
         iptm_pred = torch.sigmoid(iptm_logits)
+        plddt_logits = self.plddt_readout(H_mt).squeeze(-1)
+        plddt_pred = torch.sigmoid(plddt_logits)
+        pae_logits = self.pae_readout(H_mt).squeeze(-1)
+        pae_pred = torch.sigmoid(pae_logits)
+
         if iptm_valid_mask.any():
             gt_af2_confidence_score = batch["af2_confidence_score"][iptm_valid_mask]
             loss_iptm = F.binary_cross_entropy_with_logits(iptm_logits[iptm_valid_mask], gt_af2_confidence_score, reduction="sum") / N
         else:
             loss_iptm = torch.zeros(1, device=device)
+            loss_plddt = torch.zeros(1, device=device)
+            loss_pae = torch.zeros(1, device=device)
+
+        if iptm_valid_mask.any():
+            gt_plddt = batch["af2_plddt_chainA"][iptm_valid_mask]
+            loss_plddt = F.mse_loss(plddt_pred[iptm_valid_mask], gt_plddt, reduction="sum") / N
+            gt_pae = batch["af2_pae_chainA"][iptm_valid_mask]
+            loss_pae = F.mse_loss(pae_pred[iptm_valid_mask], gt_pae, reduction="sum") / N
 
         loss_dict = {
             'iptm': loss_iptm,
             'ddg': loss_ddg,
+            'plddt': loss_plddt,
+            'pae': loss_pae
         }
         out_dict = {
             'ddg_pred': ddg_pred,
             'ddg_true': batch['ddG'],
             'iptm_pred': iptm_pred, 
             'iptm_true': batch["af2_confidence_score"],
+            'plddt_pred': plddt_pred,
+            'plddt_true': batch['af2_plddt_chainA'],
+            'pae_pred': pae_pred,
+            'pae_true': batch['af2_pae_chainA']
         }
         return loss_dict, out_dict

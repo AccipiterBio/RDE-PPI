@@ -65,14 +65,17 @@ class SkempiDatasetManager(object):
         print(f"validation set is {val_cplx}")
         leakage = train_cplx.intersection(val_cplx)
         assert len(leakage) == 0, f'data leakage {leakage}'
-        train_loader = DataLoader(
-            train_dataset, 
-            batch_size=config.train.batch_size, 
-            shuffle=True, 
-            collate_fn=PaddingCollate(), 
-            num_workers=self.num_workers
-        )
-        train_iterator = inf_iterator(train_loader)
+
+        train_iterator = None
+        if len(train_dataset) > 0:
+            train_loader = DataLoader(
+                train_dataset, 
+                batch_size=config.train.batch_size, 
+                shuffle=True, 
+                collate_fn=PaddingCollate(), 
+                num_workers=self.num_workers
+            )
+            train_iterator = inf_iterator(train_loader)
         val_loader = DataLoader(
             val_dataset, 
             batch_size=config.train.batch_size, 

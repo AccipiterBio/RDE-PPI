@@ -6,7 +6,7 @@ model:
     num_layers: 3
 
 data:
-  csv_path: ./data/acc_af2_dataset/af2_complex_dataset_skempi_v2.csv
+  csv_path: ./data/acc_af2_dataset/af2_skempi_pae_10136.csv
   pdb_dir: ./data/SKEMPI_v2/PDBs
   cache_dir: ./data/acc_cache
   transform:
@@ -20,6 +20,8 @@ train:
   loss_weights:
     iptm: 1.0
     ddg: 1.0
+    plddt: 1.0
+    pae: 1.0
   max_iters: 30_000
   val_freq: 500
   batch_size: 32
