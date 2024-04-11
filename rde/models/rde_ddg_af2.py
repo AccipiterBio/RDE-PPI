@@ -136,9 +136,9 @@ class DDG_RDE_Network(nn.Module):
         iptm_logits = self.iptm_readout(H_mt).squeeze(-1)
         iptm_pred = torch.sigmoid(iptm_logits)
         plddt_logits = self.plddt_readout(H_mt).squeeze(-1)
-        plddt_pred = torch.sigmoid(plddt_logits)
-        pae_logits = self.pae_readout(H_mt).squeeze(-1)
-        pae_pred = torch.sigmoid(pae_logits)
+        plddt_pred = torch.sigmoid(plddt_logits) * 100
+        pae_pred_values = self.pae_readout(H_mt).squeeze(-1)
+        pae_pred = torch.relu(pae_pred_values)
 
         if iptm_valid_mask.any():
             gt_af2_confidence_score = batch["af2_confidence_score"][iptm_valid_mask]
