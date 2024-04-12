@@ -15,7 +15,7 @@ from rde.utils.skempi import SkempiDatasetManager, eval_skempi_three_modes
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ckpt', type=str)
-    parser.add_argument('-o', '--output', type=str, default='rde0302_pred_tfr08_round2.csv')
+    parser.add_argument('-o', '--output', type=str, default='rde0407_pred_tfr981_round2.csv')
     parser.add_argument('--test_csv', type=str)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -33,7 +33,6 @@ if __name__ == '__main__':
 
     # Data
     logger.info('Loading datasets...')
-    breakpoint()
     dataset_mgr = SkempiDatasetManager(
         config, 
         num_cvfolds=num_cvfolds, 
