@@ -11,11 +11,12 @@ from rde.utils.train import *
 from rde.models.rde_ddg_af2 import DDG_RDE_Network
 from rde.utils.skempi import SkempiDatasetManager, eval_skempi_three_modes
 
+#todo: write design id to output csv
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ckpt', type=str)
-    parser.add_argument('-o', '--output', type=str, default='rde0407_pred_tfr981_round2.csv')
+    parser.add_argument('-o', '--output', type=str, default='rde0405_pred_tfr93b1_round2.csv')
     parser.add_argument('--test_csv', type=str)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -63,8 +64,9 @@ if __name__ == '__main__':
                 loss = sum_weighted_losses(loss_dict, config.train.loss_weights)
                 scalar_accum.add(name='loss', value=loss, batchsize=batch['size'], mode='mean')
 
-                for complex, mutstr, ddg_pred, iptm_pred in zip(batch['complex'], batch['mutstr'], output_dict["ddg_pred"], output_dict['iptm_pred'], strict=True):
+                for design_id, complex, mutstr, ddg_pred, iptm_pred in zip(batch['design_id'], batch['complex'], batch['mutstr'], output_dict["ddg_pred"], output_dict['iptm_pred'], strict=True):
                     results.append({
+                        'design_id': design_id,
                         'complex': complex,
                         'mutstr': mutstr,
                         'num_muts': len(mutstr.split(',')),

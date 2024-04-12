@@ -58,6 +58,7 @@ def load_skempi_entries(csv_path, pdb_dir, block_list={'1KBH'}):
         # Either mean_iptm_ptm_mutant or ddg is not set, what does that look like? Fill in these with a placeholder value.
         entry = {
             'id': i,
+            'design_id': row['Design'],
             'complex': row['#Pdb'],
             'mutstr': mut_str,
             'num_muts': len(muts),
@@ -184,7 +185,7 @@ class SkempiDataset(Dataset):
     def __getitem__(self, index):
         entry = self.entries[index]
         data, seq_map = copy.deepcopy( self.structures[entry['pdbcode']] )
-        keys = {'id', 'complex', 'mutstr', 'num_muts', 'pdbcode', 'ddG', 'af2_confidence_score', 'af2_plddt_chainA', 'af2_pae_chainA'}
+        keys = {'design_id', 'complex', 'mutstr', 'num_muts', 'pdbcode', 'ddG', 'af2_confidence_score', 'af2_plddt_chainA', 'af2_pae_chainA'}
         for k in keys:
             data[k] = entry[k]
 
